@@ -1,0 +1,138 @@
+SET PUSH, 5
+SET PUSH, 5
+SET PUSH, [data]
+JSR video_print_char
+SET PUSH, 4
+SET PUSH, 4
+SET PUSH, [data]
+JSR video_print_char
+SET PUSH, 3
+SET PUSH, 3
+SET PUSH, [data]
+JSR video_print_char
+SET PUSH, 2
+SET PUSH, 2
+SET PUSH, [data]
+JSR video_print_char
+SET PUSH, 1
+SET PUSH, 1
+SET PUSH, [data]
+JSR video_print_char
+SET PUSH, 0
+SET PUSH, 0
+SET PUSH, [data]
+JSR video_print_char
+SET PC, end
+
+; Begin - Stuff from notch
+:start
+    SET I, 0
+    SET J, 0
+    SET B, 0xF100
+
+:nextchar
+    SET A, [data+I]
+    IFE A, 0
+        SET PC, end
+
+    IFG A, 0xFF
+        set PC, setcolor
+
+    BOR A, B
+    SET [0x8000+J], A
+    ADD I, 1
+    ADD J, 1
+    set PC, nextchar
+
+:setcolor
+    SET B, A
+    AND B, 0xFF
+    SHL B, 8
+    IFG A, 0x1FF
+        ADD B, 0x80
+    ADD I, 1
+    SET PC, nextchar
+
+:data
+    dat "Hello World!", 0x0
+
+:end
+    set PC, end
+; Begin - End from notch
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Generic utility routines ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Video memory related routines ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; Prints a nul-terminated string
+
+
+
+; Prints a character to the screen
+:video_print_char
+    SET J, POP  ; jump-back
+    SET A, POP  ; Character to be printed
+    SET B, POP  ; X-coordinate on screen
+    SET C, POP  ; Y-coordinate on screen
+
+    MUL C, [video_width]
+    ADD C, B
+
+    SET X, [video_ram]
+    ADD X, C
+
+    ; --- Begin CALL video_char_color
+    SET PUSH, J     ; save jump-back
+    SET PUSH, 0x00  ; Background
+    SET PUSH, 0xFF  ; Foreground
+    SET PUSH, A     ; Character
+
+    JSR video_char_color
+    SET A, POP  ; video_char_color return
+    SET J, POP  ; Restore jump-back
+    ; --- End CALL video_char_color
+
+    SET [X], A  ; Actually write char to screen
+
+    SET PC, J
+
+
+:video_char_color
+    SET J, POP  ; Jump-back address
+    SET A, POP  ; Character to colorize (in the lower 8 bits)
+    SET B, POP  ; Foreground color (lower 4 bits)
+    SET C, POP  ; Background color (lower 4 bits)
+
+    ; According to http://0x10cwiki.com/wiki/Video_RAM, the highest 4 bits are
+    ; the foreground color, the next 4 highest are background, following 8 bits
+    ; of character data
+    SHL B, 12
+    SHL C, 8
+    BOR B, C    ; B now holds full color information in the upper 8 bits
+
+    BOR B, A    ; B now holds the full character information (color + character)
+    SET PUSH, B
+    SET PC, J
+
+
+:video_ram
+    DAT 0x8000  ; This is where our video RAM is located
+
+:video_width
+    DAT 32      ; Display width in chars
+
+:video_height
+    DAT 12      ; Display height in chars
+
+:video_chars
+    DAT 384     ; Number of characters
